@@ -3,13 +3,14 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"payment-airpay/domain/entities"
+	"payment-airpay/infrastructure/database/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type YugabyteTransaction struct {
@@ -36,7 +37,7 @@ type YugabyteTransactionService struct {
 
 func NewYugabyteTransactionService(db *gorm.DB) *YugabyteTransactionService {
 	if db != nil {
-		_ = db.AutoMigrate(&YugabyteTransaction{})
+		_ = db.AutoMigrate(&YugabyteTransaction{}, &models.PaymentXenditEWalletsDataModel{}, &models.PaymentXenditQrisesDataModel{}, &models.PaymentXenditVasDataModel{}, &models.EWalletProvidersDataModel{})
 	}
 	return &YugabyteTransactionService{db: db}
 }
@@ -48,22 +49,96 @@ func (s *YugabyteTransactionService) Save(ctx context.Context, payment entities.
 	if payment.PaymentRequestID == "" {
 		return nil
 	}
-	payloadBytes, err := json.Marshal(payload)
+
+	// Check if this is an e-wallet payment by looking for account_mobile_number in channel_properties
+	if isEWalletPaymentTxSvc(payment, payload) {
+		return s.saveToEWalletTable(ctx, payment)
+	} else if isQRISPayment(payment) {
+		return s.saveToQRISTable(ctx, payment, payload)
+	} else {
+		return s.saveToVATable(ctx, payment, payload)
+	}
+}
+
+func isEWalletPaymentTxSvc(payment entities.Payment, payload map[string]interface{}) bool {
+	// Check if channel_properties contains account_mobile_number
+	if channelProps, ok := payload["channel_properties"].(map[string]interface{}); ok {
+		if _, hasMobileNumber := channelProps["account_mobile_number"]; hasMobileNumber {
+			return true
+		}
+	}
+	// Also check response channel properties
+	if payment.ChannelProps != nil {
+		if _, hasMobileNumber := payment.ChannelProps["account_mobile_number"]; hasMobileNumber {
+			return true
+		}
+	}
+	return false
+}
+
+func isQRISPayment(payment entities.Payment) bool {
+	return strings.ToUpper(payment.ChannelCode) == "QRIS"
+}
+
+func (s *YugabyteTransactionService) saveToEWalletTable(ctx context.Context, payment entities.Payment) error {
+	responseJSON, err := json.Marshal(payment)
 	if err != nil {
 		return err
 	}
 
-	record := YugabyteTransaction{
-		TransactionID: payment.PaymentRequestID,
-		Payload:       string(payloadBytes),
-		CreatedAt:     time.Now(),
+	// Find ewallet provider by channel code
+	var ewalletProvider models.EWalletProvidersDataModel
+	if err := s.db.Where("provider_name = ?", payment.ChannelCode).First(&ewalletProvider).Error; err != nil {
+		// Create new provider if not found
+		ewalletProvider = models.EWalletProvidersDataModel{
+			Name:         payment.ChannelCode,
+			ProviderName: payment.ChannelCode,
+		}
+		if err := s.db.Create(&ewalletProvider).Error; err != nil {
+			return err
+		}
 	}
 
-	// If transaction_id already exists (mock often returns same ID), update the payload/created_at
-	return s.db.WithContext(ctx).
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "transaction_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"payload", "created_at"}),
-		}).
-		Create(&record).Error
+	record := models.PaymentXenditEWalletsDataModel{
+		TransactionID:     &payment.PaymentRequestID,
+		ResponseJson:      responseJSON,
+		EWalletProviderID: &ewalletProvider.ID,
+	}
+
+	// Set customer mobile number if available
+	if payment.ChannelProps != nil {
+		if mobileNumber, ok := payment.ChannelProps["account_mobile_number"].(string); ok && mobileNumber != "" {
+			record.CustomerMSISDN = &mobileNumber
+		}
+	}
+
+	return s.db.WithContext(ctx).Create(&record).Error
+}
+
+func (s *YugabyteTransactionService) saveToQRISTable(ctx context.Context, payment entities.Payment, payload map[string]interface{}) error {
+	responseJSON, err := json.Marshal(payment)
+	if err != nil {
+		return err
+	}
+
+	record := models.PaymentXenditQrisesDataModel{
+		TransactionID: &payment.PaymentRequestID,
+		ResponseJson:  responseJSON,
+	}
+
+	return s.db.WithContext(ctx).Create(&record).Error
+}
+
+func (s *YugabyteTransactionService) saveToVATable(ctx context.Context, payment entities.Payment, payload map[string]interface{}) error {
+	responseJSON, err := json.Marshal(payment)
+	if err != nil {
+		return err
+	}
+
+	record := models.PaymentXenditVasDataModel{
+		TransactionID: &payment.PaymentRequestID,
+		ResponseJson:  responseJSON,
+	}
+
+	return s.db.WithContext(ctx).Create(&record).Error
 }

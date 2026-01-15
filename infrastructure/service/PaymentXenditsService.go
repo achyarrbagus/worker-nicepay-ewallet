@@ -14,16 +14,22 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type PaymentXendit struct {
-	repo *repositories.PaymentXenditRepositoryYugabyteDB
-	db   clients.YugabyteClient
+	masterRepo  *repositories.MasterDataRepositoryYugabyteDB
+	paymentRepo *repositories.PaymentRepositoryYugabyteDB
+	xenditRepo  *repositories.XenditRepositoryYugabyteDB
+	db          clients.YugabyteClient
 }
 
-func NewPaymentXendit(repo *repositories.PaymentXenditRepositoryYugabyteDB, db clients.YugabyteClient) *PaymentXendit {
-	return &PaymentXendit{repo: repo, db: db}
+func NewPaymentXendit(
+	masterRepo *repositories.MasterDataRepositoryYugabyteDB,
+	paymentRepo *repositories.PaymentRepositoryYugabyteDB,
+	xenditRepo *repositories.XenditRepositoryYugabyteDB,
+	db clients.YugabyteClient,
+) *PaymentXendit {
+	return &PaymentXendit{masterRepo: masterRepo, paymentRepo: paymentRepo, xenditRepo: xenditRepo, db: db}
 }
 
 func (s *PaymentXendit) Save(ctx context.Context, payment entities.Payment, payload map[string]interface{}) error {
@@ -40,19 +46,20 @@ func (s *PaymentXendit) Save(ctx context.Context, payment entities.Payment, payl
 		currencyCode := payment.Currency
 		countryCode := payment.Country
 
-		merchantID, err := getOrCreateMerchant(tx, merchantCode, merchantName)
+		merchantID, err := s.masterRepo.GetOrCreateMerchant(tx, merchantCode, merchantName)
 		if err != nil {
 			return err
 		}
-		paymentMethodID, err := getOrCreatePaymentMethod(tx, channelCode)
+		paymentMethodName := normalizePaymentMethodName(channelCode)
+		paymentMethodID, err := s.masterRepo.GetOrCreatePaymentMethod(tx, paymentMethodName)
 		if err != nil {
 			return err
 		}
-		currencyID, err := getOrCreateCurrency(tx, currencyCode)
+		currencyID, err := s.masterRepo.GetOrCreateCurrency(tx, currencyCode)
 		if err != nil {
 			return err
 		}
-		countryID, err := getOrCreateCountry(tx, countryCode)
+		countryID, err := s.masterRepo.GetOrCreateCountry(tx, countryCode)
 		if err != nil {
 			return err
 		}
@@ -111,32 +118,88 @@ func (s *PaymentXendit) Save(ctx context.Context, payment entities.Payment, payl
 			return err
 		}
 
-		qrpyID := extractQRPYID(payment)
+		// Persist Xendit gateway-specific payload
+		if isEWalletPayment(payment, payload) {
+			providerName := strings.ToUpper(strings.TrimSpace(channelCode))
+			providerID, err := s.masterRepo.GetOrCreateEWalletProvider(tx, providerName)
+			if err != nil {
+				return err
+			}
 
-		// Upsert into payment_xendits table (unique by transaction_id) and get its ID
-		px := models.PaymentXenditQrisesDataModel{
-			TransactionID: &trxID,
-			URLReturn:     "",
-			QRPYID:        qrpyID,
-			ResponseJson:  responseJSON,
-			CreatedDate:   createdDate,
-			CreatedUser:   &actor,
-			UpdatedDate:   updatedDate,
-			UpdatedUser:   &actor,
-			DataStatus:    &dataStatus,
-		}
+			var providerIDPtr *uuid.UUID
+			if providerID != uuid.Nil {
+				providerIDPtr = &providerID
+			}
 
-		if err := tx.Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "transaction_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{
-				"qrpy_id",
-				"response_json",
-				"updated_date",
-				"updated_user",
-				"data_status",
-			}),
-		}).Create(&px).Error; err != nil {
-			return err
+			var customerMSISDN *string
+			if payment.ChannelProps != nil {
+				if v, ok := payment.ChannelProps["account_mobile_number"]; ok {
+					if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+						t := s
+						customerMSISDN = &t
+					}
+				}
+			}
+
+			px := models.PaymentXenditEWalletsDataModel{
+				TransactionID:     &trxID,
+				URLReturn:         "",
+				EWalletProviderID: providerIDPtr,
+				CustomerMSISDN:    customerMSISDN,
+				ResponseJson:      responseJSON,
+				CreatedDate:       createdDate,
+				CreatedUser:       &actor,
+				UpdatedDate:       updatedDate,
+				UpdatedUser:       &actor,
+				DataStatus:        &dataStatus,
+			}
+			if err := s.xenditRepo.InsertEWallets(tx, &px); err != nil {
+				return err
+			}
+		} else if strings.Contains(strings.ToUpper(channelCode), "VIRTUAL_ACCOUNT") {
+			providerName := extractVAProviderName(channelCode)
+			providerID, err := s.masterRepo.GetOrCreateVAProvider(tx, channelCode, providerName)
+			if err != nil {
+				return err
+			}
+
+			var providerIDPtr *uuid.UUID
+			if providerID != uuid.Nil {
+				providerIDPtr = &providerID
+			}
+
+			vaNumber := extractVANumber(payment)
+			px := models.PaymentXenditVasDataModel{
+				TransactionID: &trxID,
+				URLReturn:     "",
+				VAProviderID:  providerIDPtr,
+				VANumber:      vaNumber,
+				ResponseJson:  responseJSON,
+				CreatedDate:   createdDate,
+				CreatedUser:   &actor,
+				UpdatedDate:   updatedDate,
+				UpdatedUser:   &actor,
+				DataStatus:    &dataStatus,
+			}
+			if err := s.xenditRepo.InsertVAs(tx, &px); err != nil {
+				return err
+			}
+		} else if strings.EqualFold(channelCode, "QRIS") {
+			qrpyID := extractQRPYID(payment)
+			px := models.PaymentXenditQrisesDataModel{
+				TransactionID: &trxID,
+				URLReturn:     "",
+				QRPYID:        qrpyID,
+				ResponseJson:  responseJSON,
+				CreatedDate:   createdDate,
+				CreatedUser:   &actor,
+				UpdatedDate:   updatedDate,
+				UpdatedUser:   &actor,
+				DataStatus:    &dataStatus,
+			}
+			if err := s.xenditRepo.InsertQrises(tx, &px); err != nil {
+				return err
+			}
 		}
 
 		model := models.PaymentsDataModel{
@@ -159,8 +222,33 @@ func (s *PaymentXendit) Save(ctx context.Context, payment entities.Payment, payl
 			DataStatus:      &dataStatus,
 		}
 
-		return tx.Create(&model).Error
+		return s.paymentRepo.Insert(tx, &model)
 	})
+}
+
+func normalizePaymentMethodName(channelCode string) string {
+	cc := strings.ToUpper(strings.TrimSpace(channelCode))
+	if strings.Contains(cc, "VIRTUAL_ACCOUNT") {
+		return "VA"
+	}
+	if strings.EqualFold(cc, "QRIS") {
+		return "QRIS"
+	}
+	return "E_WALLET"
+}
+
+func isEWalletPayment(payment entities.Payment, payload map[string]interface{}) bool {
+	if channelProps, ok := payload["channel_properties"].(map[string]interface{}); ok {
+		if _, has := channelProps["account_mobile_number"]; has {
+			return true
+		}
+	}
+	if payment.ChannelProps != nil {
+		if _, has := payment.ChannelProps["account_mobile_number"]; has {
+			return true
+		}
+	}
+	return false
 }
 
 func extractMetadata(payload map[string]interface{}) (merchantName string, paymentGateway string) {
@@ -193,6 +281,26 @@ func extractQRPYID(payment entities.Payment) string {
 		}
 	}
 	return ""
+}
+
+func extractVANumber(payment entities.Payment) string {
+	for _, a := range payment.Actions {
+		if strings.EqualFold(a.Descriptor, "VIRTUAL_ACCOUNT_NUMBER") && strings.TrimSpace(a.Value) != "" {
+			return a.Value
+		}
+	}
+	for _, a := range payment.Actions {
+		if strings.EqualFold(a.Type, "PRESENT_TO_CUSTOMER") && strings.TrimSpace(a.Value) != "" {
+			return a.Value
+		}
+	}
+	return ""
+}
+
+func extractVAProviderName(channelCode string) string {
+	cc := strings.ToUpper(strings.TrimSpace(channelCode))
+	cc = strings.TrimSuffix(cc, "_VIRTUAL_ACCOUNT")
+	return cc
 }
 
 func extractMerchantCode(payload map[string]interface{}, merchantName string) string {

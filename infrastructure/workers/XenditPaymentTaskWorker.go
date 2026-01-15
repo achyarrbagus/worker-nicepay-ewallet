@@ -39,7 +39,9 @@ type Metadata struct {
 }
 
 type ChannelProperties struct {
-	DisplayName string `json:"display_name"`
+	DisplayName         string `json:"display_name"`
+	AccountMobileNumber string `json:"account_mobile_number,omitempty"`
+	SuccessReturnURL    string `json:"success_return_url,omitempty"`
 }
 
 type CreatePaymentVirtualAccount struct {
@@ -88,9 +90,16 @@ func (r *CreatePaymentRequest) ToPayloadMap() map[string]interface{} {
 		payload["channel_code"] = r.ChannelCode
 	}
 	if r.ChannelProps != nil {
-		payload["channel_properties"] = map[string]interface{}{
+		channelProps := map[string]interface{}{
 			"display_name": r.ChannelProps.DisplayName,
 		}
+		if r.ChannelProps.AccountMobileNumber != "" {
+			channelProps["account_mobile_number"] = r.ChannelProps.AccountMobileNumber
+		}
+		if r.ChannelProps.SuccessReturnURL != "" {
+			channelProps["success_return_url"] = r.ChannelProps.SuccessReturnURL
+		}
+		payload["channel_properties"] = channelProps
 	}
 	if r.Description != "" {
 		payload["description"] = r.Description

@@ -41,16 +41,12 @@ func InitializeYugabyteDB() {
 
 	registerUUIDv7BeforeCreate(YugabyteDBClient)
 
-	oldTable := "payment_xendits"
-	newTable := "payment_xendit_qrises"
-	if YugabyteDBClient.Migrator().HasTable(oldTable) && !YugabyteDBClient.Migrator().HasTable(newTable) {
-		if err := YugabyteDBClient.Migrator().RenameTable(oldTable, newTable); err != nil {
-			log.Fatal(err)
-		}
-	}
-
 	if err := YugabyteDBClient.AutoMigrate(
 		&models.PaymentXenditQrisesDataModel{},
+		&models.PaymentXenditVasDataModel{},
+		&models.PaymentXenditEWalletsDataModel{},
+		&models.EWalletProvidersDataModel{},
+		&models.VAProvidersDataModel{},
 		&models.PaymentsDataModel{},
 		&models.MerchantsDataModel{},
 		&models.PaymentMethodsDataModel{},

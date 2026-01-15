@@ -27,7 +27,3 @@ type PaymentXenditQrisesDataModel struct {
 	DeletedIp        *string
 	DataStatus       *string
 }
-
-func (PaymentXenditQrisesDataModel) TableName() string {
-	return "payment_xendit_qrises"
-}

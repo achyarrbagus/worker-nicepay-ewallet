@@ -20,20 +20,26 @@ var gatewayOnce sync.Once
 var transactionServiceOnce sync.Once
 var publisherOnce sync.Once
 var yugabyteClientOnce sync.Once
-var paymentXenditRepoOnce sync.Once
+var masterDataRepoOnce sync.Once
+var paymentRepoOnce sync.Once
+var xenditRepoOnce sync.Once
 
 // singleton instance
 var xenditGatewayInstance *xendit.XenditGateway
 var transactionServiceInstance *service.PaymentXendit
 var publisherInstance *publishers.PublisherLog
 var yugabyteClientInstance *connectors.YugabyteConnector
-var paymentXenditRepoInstance *repositories.PaymentXenditRepositoryYugabyteDB
+var masterDataRepoInstance *repositories.MasterDataRepositoryYugabyteDB
+var paymentRepoInstance *repositories.PaymentRepositoryYugabyteDB
+var xenditRepoInstance *repositories.XenditRepositoryYugabyteDB
 
 var ProviderSet wire.ProviderSet = wire.NewSet(
 	ProvideXenditGateway,
 	ProvideTransactionService,
 	ProvideYugabyteClient,
-	ProvidePaymentXenditRepository,
+	ProvideMasterDataRepository,
+	ProvidePaymentRepository,
+	ProvideXenditRepository,
 	ProvidePublisher,
 	wire.Bind(new(services.PaymentGateway), new(*xendit.XenditGateway)),
 	wire.Bind(new(services.TransactionService), new(*service.PaymentXendit)),
@@ -50,9 +56,11 @@ func ProvideXenditGateway() *xendit.XenditGateway {
 
 func ProvideTransactionService() *service.PaymentXendit {
 	transactionServiceOnce.Do(func() {
-		repo := ProvidePaymentXenditRepository()
+		masterRepo := ProvideMasterDataRepository()
+		paymentRepo := ProvidePaymentRepository()
+		xenditRepo := ProvideXenditRepository()
 		db := ProvideYugabyteClient()
-		transactionServiceInstance = service.NewPaymentXendit(repo, db)
+		transactionServiceInstance = service.NewPaymentXendit(masterRepo, paymentRepo, xenditRepo, db)
 	})
 	return transactionServiceInstance
 }
@@ -64,11 +72,25 @@ func ProvideYugabyteClient() *connectors.YugabyteConnector {
 	return yugabyteClientInstance
 }
 
-func ProvidePaymentXenditRepository() *repositories.PaymentXenditRepositoryYugabyteDB {
-	paymentXenditRepoOnce.Do(func() {
-		paymentXenditRepoInstance = repositories.NewPaymentXenditRepositoryYugabyteDB(ProvideYugabyteClient())
+func ProvideMasterDataRepository() *repositories.MasterDataRepositoryYugabyteDB {
+	masterDataRepoOnce.Do(func() {
+		masterDataRepoInstance = repositories.NewMasterDataRepositoryYugabyteDB()
 	})
-	return paymentXenditRepoInstance
+	return masterDataRepoInstance
+}
+
+func ProvidePaymentRepository() *repositories.PaymentRepositoryYugabyteDB {
+	paymentRepoOnce.Do(func() {
+		paymentRepoInstance = repositories.NewPaymentRepositoryYugabyteDB()
+	})
+	return paymentRepoInstance
+}
+
+func ProvideXenditRepository() *repositories.XenditRepositoryYugabyteDB {
+	xenditRepoOnce.Do(func() {
+		xenditRepoInstance = repositories.NewXenditRepositoryYugabyteDB()
+	})
+	return xenditRepoInstance
 }
 
 func ProvidePublisher() *publishers.PublisherLog {

@@ -9,7 +9,7 @@ import (
 
 type PaymentsDataModel struct {
 	ID              uuid.UUID                `gorm:"primaryKey;column:id;type:uuid"`
-	TransactionID   *string                  `gorm:"column:transaction_id"`
+	TransactionID   *string                  `gorm:"column:transaction_id;uniqueIndex"`
 	PaymentGateway  *string                  `gorm:"column:payment_gateway"`
 	ReferenceNo     *string                  `gorm:"column:reference_no"`
 	PaymentMethodID *uuid.UUID               `gorm:"column:payment_method_id;type:uuid"`

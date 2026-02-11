@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"payment-airpay/application/events"
-	"payment-airpay/application/services"
+	"worker-nicepay/application/events"
+	"worker-nicepay/application/services"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )

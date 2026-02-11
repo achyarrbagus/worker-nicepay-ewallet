@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"payment-airpay/infrastructure/database/models"
+	"worker-nicepay/infrastructure/database/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -17,14 +17,13 @@ func NewMasterDataRepositoryYugabyteDB() *MasterDataRepositoryYugabyteDB {
 	return &MasterDataRepositoryYugabyteDB{}
 }
 
-func (r *MasterDataRepositoryYugabyteDB) GetOrCreateMerchant(tx *gorm.DB, code string, name string) (uuid.UUID, error) {
+func (r *MasterDataRepositoryYugabyteDB) GetOrCreateMerchant(tx *gorm.DB, where models.MerchantsDataModel, name string) (uuid.UUID, error) {
 	if tx == nil {
 		return uuid.Nil, nil
 	}
 
-	code = strings.TrimSpace(code)
 	var m models.MerchantsDataModel
-	err := tx.Where("code = ?", code).First(&m).Error
+	err := tx.Where(where).First(&m).Error
 	if err == nil {
 		return m.ID, nil
 	}
@@ -33,14 +32,14 @@ func (r *MasterDataRepositoryYugabyteDB) GetOrCreateMerchant(tx *gorm.DB, code s
 	}
 
 	if strings.TrimSpace(name) == "" {
-		name = code
+		name = where.Code
 	}
 	actor := "system"
 	dataStatus := "ACTIVE"
 	now := time.Now().UnixMilli()
 
 	newM := models.MerchantsDataModel{
-		Code:        code,
+		Code:        where.Code,
 		Name:        name,
 		CreatedDate: &now,
 		CreatedUser: &actor,
@@ -212,7 +211,7 @@ func (r *MasterDataRepositoryYugabyteDB) GetOrCreateCountry(tx *gorm.DB, country
 	}
 
 	var c models.CountriesDataModel
-	err := tx.Where("country_id = ?", countryID).First(&c).Error
+	err := tx.Where("code = ?", countryID).First(&c).Error
 	if err == nil {
 		return c.ID, nil
 	}
@@ -229,7 +228,7 @@ func (r *MasterDataRepositoryYugabyteDB) GetOrCreateCountry(tx *gorm.DB, country
 	dataStatus := "ACTIVE"
 	now := time.Now().UnixMilli()
 	newC := models.CountriesDataModel{
-		CountryId:   countryID,
+		Code:        countryID,
 		Name:        name,
 		CreatedDate: &now,
 		CreatedUser: &actor,

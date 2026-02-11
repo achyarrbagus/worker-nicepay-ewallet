@@ -5,7 +5,7 @@ import "github.com/google/uuid"
 type CountriesDataModel struct {
 	ID          uuid.UUID `gorm:"primaryKey;column:id;type:uuid"`
 	Name        string    `gorm:"column:name"`
-	CountryId   string    `gorm:"column:country_id;uniqueIndex"`
+	Code        string    `gorm:"column:code;uniqueIndex"`
 	CreatedDate *int64
 	CreatedUser *string
 	CreatedIp   *string

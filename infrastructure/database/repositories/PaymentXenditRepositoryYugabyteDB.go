@@ -3,8 +3,8 @@ package repositories
 import (
 	"context"
 
-	"payment-airpay/infrastructure/database/clients"
-	"payment-airpay/infrastructure/database/models"
+	"worker-nicepay/infrastructure/database/clients"
+	"worker-nicepay/infrastructure/database/models"
 
 	"gorm.io/gorm/clause"
 )

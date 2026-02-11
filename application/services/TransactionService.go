@@ -3,9 +3,10 @@ package services
 import (
 	"context"
 
-	"payment-airpay/domain/entities"
+	"worker-nicepay/application/dto"
+	"worker-nicepay/domain/entities"
 )
 
 type TransactionService interface {
-	Save(ctx context.Context, payment entities.Payment, payload map[string]interface{}) error
+	Save(ctx context.Context, param dto.CreatePaymentRequest, incoming entities.Incoming) (string, entities.Payment, error)
 }

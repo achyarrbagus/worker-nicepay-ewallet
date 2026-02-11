@@ -7,29 +7,29 @@
 package dependencies
 
 import (
-	"payment-airpay/application/services"
-	"payment-airpay/infrastructure/gateway/xendit"
-	"payment-airpay/infrastructure/publishers"
-	"payment-airpay/infrastructure/service"
+	"worker-nicepay/application/services"
+	"worker-nicepay/infrastructure/gateway/nicepay"
+	"worker-nicepay/infrastructure/publishers"
+	"worker-nicepay/infrastructure/service"
 )
 
 // Injectors from wire.go:
 
 func WireCreatePaymentService() *services.CreatePaymentService {
-	xenditGateway := ProvideXenditGateway()
-	PaymentXendit := ProvideTransactionService()
-	createPaymentService := services.NewCreatePaymentService(xenditGateway, PaymentXendit)
+	nicepayGateway := ProvideNicepayGateway()
+	nicePayTransactionService := ProvideTransactionService()
+	createPaymentService := services.NewCreatePaymentService(nicepayGateway, nicePayTransactionService)
 	return createPaymentService
 }
 
-func WireXenditGateway() *xendit.XenditGateway {
-	xenditGateway := ProvideXenditGateway()
-	return xenditGateway
+func WireNicepayGateway() *nicepay.NicepayGateway {
+	nicepayGateway := ProvideNicepayGateway()
+	return nicepayGateway
 }
 
-func WireTransactionService() *service.PaymentXendit {
-	PaymentXendit := ProvideTransactionService()
-	return PaymentXendit
+func WireNicepayTransactionService() *service.NicePayTransactionService {
+	nicePayTransactionService := ProvideTransactionService()
+	return nicePayTransactionService
 }
 
 func WirePublisher() *publishers.PublisherLog {

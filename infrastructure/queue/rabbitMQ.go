@@ -2,7 +2,8 @@ package queue
 
 import (
 	"log"
-	"payment-airpay/application/events"
+	"worker-nicepay/application/events"
+	"worker-nicepay/infrastructure/configuration"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -12,7 +13,7 @@ var RabbitChan *amqp.Channel
 
 func InitializeRabbitMQ() {
 	var err error
-	RabbitConn, err = amqp.Dial("amqp://guest:guest@localhost:5672")
+	RabbitConn, err = amqp.Dial(configuration.AppConfig.RabbitMQURI)
 	if err != nil {
 		log.Fatal("Failed to connect to RabbitMQ: ", err)
 	}

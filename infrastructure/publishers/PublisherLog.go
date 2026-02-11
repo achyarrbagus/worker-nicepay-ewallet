@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"payment-airpay/application/messages"
-	"payment-airpay/application/services"
+	"worker-nicepay/application/messages"
+	"worker-nicepay/application/services"
 )
 
 type PublisherLog struct{}

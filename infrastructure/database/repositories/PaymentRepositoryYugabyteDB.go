@@ -1,7 +1,7 @@
 package repositories
 
 import (
-	"payment-airpay/infrastructure/database/models"
+	"worker-nicepay/infrastructure/database/models"
 
 	"gorm.io/gorm"
 )

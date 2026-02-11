@@ -4,11 +4,12 @@ import (
 	"log"
 	"strconv"
 
-	"payment-airpay/infrastructure/configuration"
-	"payment-airpay/infrastructure/database"
-	"payment-airpay/infrastructure/publishers"
-	"payment-airpay/infrastructure/queue"
-	"payment-airpay/infrastructure/workers"
+	"worker-nicepay/infrastructure/configuration"
+	"worker-nicepay/infrastructure/database"
+	"worker-nicepay/infrastructure/middleware"
+	"worker-nicepay/infrastructure/publishers"
+	"worker-nicepay/infrastructure/queue"
+	"worker-nicepay/infrastructure/workers"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -25,9 +26,15 @@ func main() {
 	configuration.InitializeAppConfig()
 	log.Println("Configuration initialized")
 
+	// Initialize YugabyteDB
 	log.Println("Initializing YugabyteDB...")
 	database.InitializeYugabyteDB()
 	log.Println("YugabyteDB initialized")
+
+	// Initialize Elasticsearch
+	log.Println("Initializing Elasticsearch...")
+	database.InitializeElasticsearch()
+	log.Println("Elasticsearch initialized")
 
 	// Initialize RabbitMQ
 	log.Println("Initializing RabbitMQ...")
@@ -46,10 +53,16 @@ func main() {
 
 	// Initialize fiber app
 	app := fiber.New()
+	// tambhkan middleware incoming dsini
+	m := middleware.Middlewares{}
+	app.Use(m.Incoming())
 
+	app.Get("/ping", func(c *fiber.Ctx) error {
+		return c.SendString("pong")
+	})
 	// Register routes
-	app.Post("/payment/xendit", workers.PaymentHandler)
-	app.Post("/payment/xendit/async", workers.EnqueueHandler)
+	app.Post("/payment/nicepay", workers.PaymentHandler)
+	app.Post("/payment/nicepay/async", workers.EnqueueHandler)
 	app.Get("/jobs/status", workers.StatusHandler)
 
 	// Start server

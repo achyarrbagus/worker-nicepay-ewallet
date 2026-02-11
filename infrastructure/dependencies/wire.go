@@ -4,10 +4,10 @@
 package dependencies
 
 import (
-	"payment-airpay/application/services"
-	"payment-airpay/infrastructure/gateway/xendit"
-	"payment-airpay/infrastructure/publishers"
-	"payment-airpay/infrastructure/service"
+	"worker-nicepay/application/services"
+	"worker-nicepay/infrastructure/gateway/nicepay"
+	"worker-nicepay/infrastructure/publishers"
+	"worker-nicepay/infrastructure/service"
 
 	"github.com/google/wire"
 )
@@ -16,11 +16,11 @@ func WireCreatePaymentService() *services.CreatePaymentService {
 	panic(wire.Build(ProviderSet, services.NewCreatePaymentService))
 }
 
-func WireXenditGateway() *xendit.XenditGateway {
+func WireNicepayGateway() *nicepay.NicepayGateway {
 	panic(wire.Build(ProviderSet))
 }
 
-func WireTransactionService() *service.PaymentXendit {
+func WireNicepayTransactionService() *service.NicePayTransactionService {
 	panic(wire.Build(ProviderSet))
 }
 

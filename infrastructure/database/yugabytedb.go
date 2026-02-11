@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"payment-airpay/infrastructure/configuration"
-	"payment-airpay/infrastructure/database/models"
+	"worker-nicepay/infrastructure/configuration"
+	"worker-nicepay/infrastructure/database/models"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
@@ -26,6 +26,8 @@ func InitializeYugabyteDB() {
 		configuration.AppConfig.YugabyteDatabase,
 		configuration.AppConfig.YugabytePort,
 	)
+
+	fmt.Println(conn)
 
 	db, err := gorm.Open(postgres.Open(conn), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{

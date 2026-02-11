@@ -2,9 +2,9 @@ package services
 
 import (
 	"context"
-	"payment-airpay/domain/entities"
+	"worker-nicepay/infrastructure/gateway/nicepay"
 )
 
 type PaymentGateway interface {
-	Create(ctx context.Context, payload map[string]interface{}) (entities.Payment, error)
+	RequestPaymentLink(ctx context.Context, req nicepay.RequestPaymentLinkDTO, url string) (nicepay.ResponsePaymentLinkDTO, error)
 }

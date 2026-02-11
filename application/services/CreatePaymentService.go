@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"payment-airpay/domain/entities"
+	"worker-nicepay/application/dto"
+	"worker-nicepay/domain/entities"
 )
 
 type CreatePaymentService struct {
@@ -16,13 +17,11 @@ func NewCreatePaymentService(g PaymentGateway, t TransactionService) *CreatePaym
 	return &CreatePaymentService{Gateway: g, TxSvc: t}
 }
 
-func (s *CreatePaymentService) Execute(ctx context.Context, payload map[string]interface{}) (entities.Payment, error) {
-	res, err := s.Gateway.Create(ctx, payload)
+func (s *CreatePaymentService) Execute(ctx context.Context, req dto.CreatePaymentRequest, incoming entities.Incoming) (string, entities.Payment, error) {
+
+	payementLinkUrl, payment, err := s.TxSvc.Save(ctx, req, incoming)
 	if err != nil {
-		return entities.Payment{}, err
+		return "", entities.Payment{}, fmt.Errorf("failed to persist payment: %w", err)
 	}
-	if err := s.TxSvc.Save(ctx, res, payload); err != nil {
-		return entities.Payment{}, fmt.Errorf("failed to persist payment: %w", err)
-	}
-	return res, nil
+	return payementLinkUrl, payment, nil
 }

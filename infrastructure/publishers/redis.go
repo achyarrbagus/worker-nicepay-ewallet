@@ -3,7 +3,7 @@ package publishers
 import (
 	"fmt"
 	"log"
-	"payment-airpay/infrastructure/configuration"
+	"worker-nicepay/infrastructure/configuration"
 	"strconv"
 )
 

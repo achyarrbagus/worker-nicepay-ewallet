@@ -5,23 +5,29 @@ import "github.com/spf13/viper"
 var AppConfig *appConfig
 
 type appConfig struct {
-	ApplicationPort  int
-	ApplicationName  string
-	ServiceName      string
-	Environment      string
-	XenditAPIURL     string
-	XenditAPIKey     string
-	XenditTimeout    int // in milliseconds
-	RedisHost        string
-	RedisPort        int
-	RedisPassword    string
-	RedisDatabase    int
-	YugabyteHost     string
-	YugabytePort     int
-	YugabyteUsername string
-	YugabytePassword string
-	YugabyteDatabase string
-	RabbitMQURI      string
+	ApplicationPort       int
+	ApplicationName       string
+	ServiceName           string
+	Environment           string
+	XenditAPIURL          string
+	XenditAPIKey          string
+	XenditTimeout         int // in milliseconds
+	RedisHost             string
+	RedisPort             int
+	RedisPassword         string
+	RedisDatabase         int
+	YugabyteHost          string
+	YugabytePort          int
+	YugabyteUsername      string
+	YugabytePassword      string
+	YugabyteDatabase      string
+	RabbitMQURI           string
+	ElasticsearchAddress  string
+	ElasticsearchUsername string
+	ElasticsearchPassword string
+	CallbackURLNicepay    string
+	ReturnURLNicepay      string
+	NicepayURL            string
 }
 
 func InitializeAppConfig() {
@@ -47,4 +53,10 @@ func InitializeAppConfig() {
 	AppConfig.YugabytePassword = viper.GetString("YUGABYTE_PASSWORD")
 	AppConfig.YugabyteDatabase = viper.GetString("YUGABYTE_DATABASE")
 	AppConfig.RabbitMQURI = viper.GetString("RABBITMQ_URI")
+	AppConfig.ElasticsearchAddress = viper.GetString("ELASTICSEARCH_ADDRESS")
+	AppConfig.ElasticsearchUsername = viper.GetString("ELASTICSEARCH_USERNAME")
+	AppConfig.ElasticsearchPassword = viper.GetString("ELASTICSEARCH_PASSWORD")
+	AppConfig.CallbackURLNicepay = viper.GetString("CALLBACK_URL_NICEPAY")
+	AppConfig.ReturnURLNicepay = viper.GetString("RETURN_URL_NICEPAY")
+	AppConfig.NicepayURL = viper.GetString("NICEPAY_URL")
 }
